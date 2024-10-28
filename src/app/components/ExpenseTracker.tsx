@@ -74,7 +74,7 @@ const Background = styled(Box)({
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundImage: 'url(/elf.png)',
+    backgroundImage: `url(${basePath}/elf.png)`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     zIndex: -1,
