@@ -30,6 +30,8 @@ import { ResponsiveBar } from '@nivo/bar';
 import Notification from './Notification';
 import { FilterList } from '@mui/icons-material';
 
+const basePath = process.env.NODE_ENV === 'production' ? '/expense-tracker' : '';
+
 interface Expense {
     id: number;
     amount: number;
@@ -443,7 +445,7 @@ const ExpenseTracker: React.FC = () => {
         }}
     >
         <img
-            src="/waifu.gif"
+            src={`${basePath}/waifu.gif`}
             alt="Waifu Assistant"
             width="100"
             style={{
@@ -972,7 +974,7 @@ const ExpenseTracker: React.FC = () => {
                     </Typography>
                     <Box sx={{ position: 'absolute', bottom: 16, right: 16 }}>
                         <img
-                            src="/note.gif"
+                            src={`${basePath}/note.gif`}
                             alt="Note"
                             width="250"
                             style={{

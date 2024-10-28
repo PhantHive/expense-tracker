@@ -32,6 +32,6 @@ jobs:
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: out # Next.js builds to the 'out' directory by default
+          folder: out
           branch: gh-pages
           token: ${{ secrets.GH_TOKEN }}

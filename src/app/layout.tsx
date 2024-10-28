@@ -1,7 +1,7 @@
-'use client'; // Add this at the top since we're using client-side features
+'use client';
 
 import { Providers } from './providers';
-import Head from 'next/head';
+import './globals.css';
 
 export default function RootLayout({
     children,
@@ -10,10 +10,10 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
-            <Head>
+            <head>
                 <title>Expense Tracker</title>
-                <link rel="icon" href="/favicon.ico" />
-            </Head>
+                <meta name="description" content="Track your expenses with this beautiful app" />
+            </head>
             <body>
                 <Providers>{children}</Providers>
             </body>
