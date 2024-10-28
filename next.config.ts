@@ -1,7 +1,11 @@
-import type { NextConfig } from 'next';
+/** @type {import('next').NextConfig} */
 
-const nextConfig: NextConfig = {
-    /* config options here */
-};
+const nextConfig = {
+    output: 'export',
+    images: {
+        unoptimized: true,
+    },
+    basePath: process.env.NODE_ENV === 'production' ? '/expense-tracker' : '',
+}
 
-export default nextConfig;
+module.exports = nextConfig
