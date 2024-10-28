@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Typography, Paper } from '@mui/material';
 import { styled } from '@mui/system';
+import Image from 'next/image';
 
 const NotificationContainer = styled(Paper)({
     position: 'fixed',
@@ -18,7 +19,7 @@ const NotificationContainer = styled(Paper)({
 const Notification: React.FC<{ message: string }> = ({ message }) => {
     return (
         <NotificationContainer>
-            <img
+            <Image
                 src="/happy.gif"
                 alt="Waifu Happy"
                 width="100"

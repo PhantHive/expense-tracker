@@ -29,6 +29,7 @@ import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveBar } from '@nivo/bar';
 import Notification from './Notification';
 import { FilterList } from '@mui/icons-material';
+import Image from 'next/image';
 
 const basePath = process.env.NODE_ENV === 'production' ? '/expense-tracker' : '';
 
@@ -444,7 +445,7 @@ const ExpenseTracker: React.FC = () => {
             opacity: 1,
         }}
     >
-        <img
+        <Image
             src={`${basePath}/waifu.gif`}
             alt="Waifu Assistant"
             width="100"
@@ -973,7 +974,7 @@ const ExpenseTracker: React.FC = () => {
                         }
                     </Typography>
                     <Box sx={{ position: 'absolute', bottom: 16, right: 16 }}>
-                        <img
+                        <Image
                             src={`${basePath}/note.gif`}
                             alt="Note"
                             width="250"
