@@ -34,4 +34,4 @@ jobs:
         with:
           folder: out # Next.js builds to the 'out' directory by default
           branch: gh-pages
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
