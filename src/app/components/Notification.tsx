@@ -24,7 +24,7 @@ const Notification: React.FC<{ message: string }> = ({ message }) => {
             <Image
                 src={`${basePath}/happy.gif`}
                 alt="Waifu Happy"
-                width="100"
+                width="150"
                 style={{ marginRight: '16px', borderRadius: '8px' }}
             />
             <Typography variant="body1">{message}</Typography>
