@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💖 Waifu Expense Tracker ✨
 
-## Getting Started
+![Kawaii Expense Tracker Banner](img.png)
 
-First, run the development server:
+## 🌸 About
 
+Welcome to the most adorable expense tracking app ever! This kawaii-themed application helps you manage your finances with style and cuteness~ 
+
+## ✨ Features
+
+- 🎀 Beautiful kawaii interface with animated elements
+- 📊 Cute visualizations of your expenses
+- 🌈 Category-based expense tracking
+- 💝 Note-taking capability with kawaii GIF animations
+- 📱 Responsive design for all devices (but computer/tablet recommended)
+- 💖 Customizable categories
+- 🌟 Interactive charts and graphs
+- 🎉 Import/Export functionality
+
+## 🚀 Getting Started
+
+### Prerequisites
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Running the App
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the kawaii magic~ ✨
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Built With
 
-## Learn More
+- 💜 Next.js
+- 💙 React
+- 💚 Material-UI
+- 💛 Nivo Charts
+- 💗 Emotion
 
-To learn more about Next.js, take a look at the following resources:
+## 🌈 Usage
 
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. 📝 Enter your expense details
+2. 🎨 Choose a category
+3. 📅 Select the date
+4. ✨ Add optional notes
+5. 🌟 Watch your expenses come to life in cute charts!
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🎨 Customization
 
-## Deploy on Vercel
+You can customize the theme by modifying the colors in `providers.tsx`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```typescript
+const theme = createTheme({
+    palette: {
+        primary: {
+            main: '#FF69B4', // Pink!
+        },
+        secondary: {
+            main: '#FFB6C1', // Light pink!
+        },
+    },
+});
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## ⭐ Star History
+
+If you enjoy this kawaii expense tracker, please give it a star! ⭐
+
+## 📫 Contact
+
+Project Link: [https://github.com/PhantHive/expense-tracker](https://github.com/PhantHive/expense-tracker)
+
+## 💝 Acknowledgments
+
+- 🎀 Special thanks to the open-source community
+- ✨ Inspired by cute Japanese design
+
+---
+
+<div align="center">
+Made with 💖 and lots of ✨sparkles✨
+</div>
