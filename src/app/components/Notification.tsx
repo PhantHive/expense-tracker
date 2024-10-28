@@ -3,6 +3,8 @@ import { Typography, Paper } from '@mui/material';
 import { styled } from '@mui/system';
 import Image from 'next/image';
 
+const basePath = process.env.NODE_ENV === 'production' ? '/expense-tracker' : '';
+
 const NotificationContainer = styled(Paper)({
     position: 'fixed',
     bottom: 20,
@@ -20,7 +22,7 @@ const Notification: React.FC<{ message: string }> = ({ message }) => {
     return (
         <NotificationContainer>
             <Image
-                src="/happy.gif"
+                src={`${basePath}/happy.gif`}
                 alt="Waifu Happy"
                 width="100"
                 style={{ marginRight: '16px', borderRadius: '8px' }}
