@@ -2,8 +2,7 @@ import React from 'react';
 import { Typography, Paper } from '@mui/material';
 import { styled } from '@mui/system';
 import Image from 'next/image';
-
-const basePath = process.env.NODE_ENV === 'production' ? '/expense-tracker' : '';
+import { THEME, IMAGES } from '../constants';
 
 const NotificationContainer = styled(Paper)({
     position: 'fixed',
@@ -11,23 +10,46 @@ const NotificationContainer = styled(Paper)({
     right: 20,
     padding: '16px',
     borderRadius: '8px',
-    backgroundColor: '#FFF0F5',
-    border: '2px solid #FF69B4',
+    backgroundColor: THEME.kawaiiBg,
+    border: `2px solid ${THEME.kawaiiAccent}`,
     display: 'flex',
     alignItems: 'center',
     boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+    zIndex: 1000,
+    animation: 'slideIn 0.3s ease-out',
+    '@keyframes slideIn': {
+        from: {
+            transform: 'translateX(100%)',
+            opacity: 0,
+        },
+        to: {
+            transform: 'translateX(0)',
+            opacity: 1,
+        },
+    },
 });
 
-const Notification: React.FC<{ message: string }> = ({ message }) => {
+interface NotificationProps {
+    message: string;
+}
+
+const Notification: React.FC<NotificationProps> = ({ message }) => {
     return (
         <NotificationContainer>
             <Image
-                src={`${basePath}/happy.gif`}
-                alt="Waifu Happy"
-                width="150"
-                style={{ marginRight: '16px', borderRadius: '8px' }}
+                src={`${IMAGES.basePath}${IMAGES.happy}`}
+                alt="Happy notification"
+                width={60}
+                height={60}
+                style={{
+                    marginRight: '16px',
+                    borderRadius: '8px',
+                    objectFit: 'cover',
+                }}
             />
-            <Typography variant="body1">{message}</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                {message}
+            </Typography>
         </NotificationContainer>
     );
 };
