@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Download, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Download, Upload, Clock, Calendar, Target, Settings } from 'lucide-react';
 import {
     Typography,
     Button,
@@ -8,6 +8,7 @@ import {
     Container,
     Stack,
     Paper,
+    Fab,
 } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { styled } from '@mui/system';
@@ -15,12 +16,15 @@ import Image from 'next/image';
 
 import { useExpenses } from '../hooks/useExpenses';
 import { useBudget } from '../hooks/useBudget';
+import { useRecurring } from '../hooks/useRecurring';
+import { useMoneyPrediction } from '../hooks/useMoneyPrediction';
 import {
     getPieChartData,
     getBarChartData,
     getBudgetChartData,
     getMonthlyData,
-    getCurrentMonthData
+    getCurrentMonthData,
+    formatMonth
 } from '../utils/dataProcessing';
 import { downloadExpensesCSV, downloadBudgetsCSV } from '../utils/fileHandling';
 import { THEME, IMAGES, NOTIFICATIONS } from '../constants';
@@ -34,6 +38,9 @@ import PieChart from './Charts/PieChart';
 import BarChart from './Charts/BarChart';
 import BudgetChart from './Charts/BudgetChart';
 import Notification from './Notification';
+import RecurringItemsPopup from './RecurringItemsPopup';
+import RecurringManager from './RecurringManager';
+import MoneyPrediction from './MoneyPrediction';
 
 // Styled components
 const Background = styled(Box)({
@@ -177,13 +184,62 @@ const ExpenseTracker: React.FC = () => {
         importBudgets,
     } = useBudget();
 
+    const {
+        recurringLabels,
+        recurringPayments,
+        addRecurringLabel,
+        removeRecurringLabel,
+        addRecurringPayment,
+        updateRecurringPayment,
+        removeRecurringPayment,
+        isPendingForMonth,
+        cleanupExpiredPayments,
+        refreshPaymentCalculations,
+        calculateRemainingPayments,
+    } = useRecurring();
+
+    const {
+        currentBalance,
+            incomeItems,
+            outgoingItems,
+            updateBankBalance,
+            addIncomeItem,
+            removeIncomeItem,
+            addOutgoingItem,
+            removeOutgoingItem,
+            predictMoneyForDate,
+    } = useMoneyPrediction(expenses, recurringPayments);
+
     // Local state
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
     const [importError, setImportError] = useState<string>('');
     const [showSuccess, setShowSuccess] = useState<boolean>(false);
     const [successMessage, setSuccessMessage] = useState<string>('');
+    const [showRecurringPopup, setShowRecurringPopup] = useState<boolean>(false);
+    const [showRecurringManager, setShowRecurringManager] = useState<boolean>(false);
+    const [showMoneyPrediction, setShowMoneyPrediction] = useState<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const budgetFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Cleanup expired payments on mount and periodically
+    useEffect(() => {
+        cleanupExpiredPayments();
+        const interval = setInterval(cleanupExpiredPayments, 24 * 60 * 60 * 1000); // Daily cleanup
+        return () => clearInterval(interval);
+    }, [cleanupExpiredPayments]);
+
+    // Check for pending recurring items when component mounts
+    useEffect(() => {
+        const currentMonth = formatMonth(new Date().toISOString().split('T')[0]);
+        const pendingPayments = recurringPayments.filter(payment =>
+            payment.isActive && isPendingForMonth(payment, currentMonth)
+        );
+
+        if (pendingPayments.length > 0 || recurringLabels.length > 0) {
+            // Auto-show popup if there are pending items
+            setTimeout(() => setShowRecurringPopup(true), 1000);
+        }
+    }, [recurringPayments, recurringLabels, isPendingForMonth]);
 
     // Handle expense form submission
     const handleExpenseSubmit = (expenseData: Omit<Expense, 'id'>) => {
@@ -287,6 +343,31 @@ const ExpenseTracker: React.FC = () => {
         setEditingExpense(null);
     };
 
+    // Handler for marking recurring payment as processed
+    const handleMarkAsProcessed = (paymentId: string) => {
+        const payment = recurringPayments.find(p => p.id === paymentId);
+        if (!payment) return;
+
+        // Calculate remaining payments based on start date
+        const newRemainingPayments = calculateRemainingPayments(payment);
+
+        updateRecurringPayment(paymentId, {
+            lastProcessed: new Date().toISOString().split('T')[0],
+            remainingPayments: newRemainingPayments !== undefined ? Math.max(0, newRemainingPayments - 1) : undefined
+        });
+    };
+
+
+    useEffect(() => {
+        // Refresh payment calculations when component mounts and periodically
+        refreshPaymentCalculations();
+
+        // Set up interval to refresh calculations daily
+        const interval = setInterval(refreshPaymentCalculations, 24 * 60 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [refreshPaymentCalculations]);
+
     // Data for charts and components
     const pieChartData = getPieChartData(expenses, categoryFilter);
     const barChartData = getBarChartData(expenses);
@@ -372,6 +453,7 @@ const ExpenseTracker: React.FC = () => {
                     onSubmit={handleExpenseSubmit}
                     editingExpense={editingExpense}
                     onCancelEdit={handleCancelEdit}
+                    onShowRecurring={() => setShowRecurringPopup(true)}
                 />
 
                 {/* File Operations */}
@@ -482,6 +564,78 @@ const ExpenseTracker: React.FC = () => {
                     onPriceOrderChange={handlePriceOrderChange}
                 />
             </Paper>
+
+            {/* Floating Action Buttons */}
+            <Box sx={{ position: 'fixed', bottom: 20, right: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Fab
+                    color="primary"
+                    onClick={() => setShowRecurringPopup(true)}
+                    sx={{
+                        bgcolor: THEME.kawaiiAccent,
+                        '&:hover': { bgcolor: THEME.kawaiiSecondary },
+                    }}
+                >
+                    <Clock />
+                </Fab>
+                <Fab
+                    color="secondary"
+                    onClick={() => setShowRecurringManager(true)}
+                    sx={{
+                        bgcolor: THEME.kawaiiSecondary,
+                        '&:hover': { bgcolor: THEME.kawaiiAccent },
+                    }}
+                >
+                    <Settings />
+                </Fab>
+                <Fab
+                    color="info"
+                    onClick={() => setShowMoneyPrediction(true)}
+                    sx={{
+                        bgcolor: '#64B5F6',
+                        '&:hover': { bgcolor: '#42A5F5' },
+                    }}
+                >
+                    <Target />
+                </Fab>
+            </Box>
+
+            {/* Dialogs */}
+            <RecurringItemsPopup
+                open={showRecurringPopup}
+                onClose={() => setShowRecurringPopup(false)}
+                recurringLabels={recurringLabels}
+                recurringPayments={recurringPayments}
+                onAddExpense={addExpense}
+                currentMonth={formatMonth(new Date().toISOString().split('T')[0])}
+                isPendingForMonth={isPendingForMonth}
+                onMarkAsProcessed={handleMarkAsProcessed}
+            />
+
+            <RecurringManager
+                open={showRecurringManager}
+                onClose={() => setShowRecurringManager(false)}
+                recurringLabels={recurringLabels}
+                recurringPayments={recurringPayments}
+                onAddLabel={addRecurringLabel}
+                onRemoveLabel={removeRecurringLabel}
+                onAddPayment={addRecurringPayment}
+                onRemovePayment={removeRecurringPayment}
+                calculateRemainingPayments={calculateRemainingPayments}
+            />
+
+            <MoneyPrediction
+                open={showMoneyPrediction}
+                onClose={() => setShowMoneyPrediction(false)}
+                currentBalance={currentBalance}
+                incomeItems={incomeItems}
+                outgoingItems={outgoingItems}
+                onUpdateBalance={updateBankBalance}
+                onAddIncome={addIncomeItem}
+                onRemoveIncome={removeIncomeItem}
+                onAddOutgoing={addOutgoingItem}
+                onRemoveOutgoing={removeOutgoingItem}
+                onPredictMoney={predictMoneyForDate}
+            />
 
             {showSuccess && (
                 <Notification message={successMessage} />

@@ -8,9 +8,10 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
+    Typography,
+    Stack,
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, Clock } from 'lucide-react';
 import { Expense, ExpenseFormData } from '../types';
 import { THEME, EXPENSE_CATEGORIES } from '../constants';
 
@@ -18,12 +19,14 @@ interface ExpenseFormProps {
     onSubmit: (expense: Omit<Expense, 'id'>) => void;
     editingExpense?: Expense | null;
     onCancelEdit?: () => void;
+    onShowRecurring?: () => void;
 }
 
 const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                                      onSubmit,
                                                      editingExpense,
                                                      onCancelEdit,
+                                                     onShowRecurring,
                                                  }) => {
     const [formData, setFormData] = useState<ExpenseFormData>({
         amount: '',
@@ -101,152 +104,152 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 backdropFilter: 'blur(10px)',
             }}
         >
+            <Typography
+                variant="h6"
+                gutterBottom
+                sx={{ color: THEME.kawaiiAccent, fontWeight: 'bold', mb: 2 }}
+            >
+                ✨ Add New Expense
+            </Typography>
             <Box component="form" onSubmit={handleSubmit}>
-                <Grid2 container spacing={2} component="div" sx={{ display: 'flex' }}>
-                    <Grid2
-                        component="div"
+                <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{
+                        flexWrap: 'wrap',
+                        alignItems: 'end'
+                    }}
+                >
+                    <TextField
+                        label="Amount"
+                        type="number"
+                        value={formData.amount}
+                        onChange={handleChange('amount')}
+                        required
+                        InputProps={{
+                            startAdornment: (
+                                <Sparkles size={16} style={{ marginRight: 8 }} />
+                            ),
+                        }}
                         sx={{
                             flex: 1,
-                            width: { xs: '100%', md: '20%' },
+                            minWidth: '150px',
+                            '& .MuiOutlinedInput-root': {
+                                '&.Mui-focused fieldset': {
+                                    borderColor: THEME.kawaiiAccent,
+                                },
+                            },
                         }}
-                    >
-                        <TextField
-                            fullWidth
-                            label="Amount"
-                            type="number"
-                            value={formData.amount}
-                            onChange={handleChange('amount')}
+                    />
+
+                    <FormControl sx={{ flex: 1, minWidth: '150px' }}>
+                        <InputLabel>Category</InputLabel>
+                        <Select
+                            value={formData.category}
+                            onChange={handleChange('category')}
+                            label="Category"
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <Sparkles size={16} style={{ marginRight: 8 }} />
-                                ),
-                            }}
                             sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    '&.Mui-focused fieldset': {
-                                        borderColor: THEME.kawaiiAccent,
-                                    },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: THEME.kawaiiAccent,
                                 },
                             }}
-                        />
-                    </Grid2>
-                    <Grid2
-                        component="div"
+                        >
+                            {EXPENSE_CATEGORIES.map((category) => (
+                                <MenuItem key={category} value={category}>
+                                    {category}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <TextField
+                        label="Date"
+                        type="date"
+                        value={formData.date}
+                        onChange={handleChange('date')}
+                        required
+                        InputLabelProps={{
+                            shrink: true,
+                        }}
                         sx={{
                             flex: 1,
-                            width: { xs: '100%', md: '20%' },
-                        }}
-                    >
-                        <FormControl fullWidth>
-                            <InputLabel>Category</InputLabel>
-                            <Select
-                                value={formData.category}
-                                onChange={handleChange('category')}
-                                label="Category"
-                                required
-                                sx={{
-                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: THEME.kawaiiAccent,
-                                    },
-                                }}
-                            >
-                                {EXPENSE_CATEGORIES.map((category) => (
-                                    <MenuItem key={category} value={category}>
-                                        {category}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid2>
-                    <Grid2
-                        component="div"
-                        sx={{
-                            flex: 1,
-                            width: { xs: '100%', md: '20%' },
-                        }}
-                    >
-                        <TextField
-                            fullWidth
-                            label="Date"
-                            type="date"
-                            value={formData.date}
-                            onChange={handleChange('date')}
-                            required
-                            InputLabelProps={{
-                                shrink: true,
-                            }}
-                            sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    '&.Mui-focused fieldset': {
-                                        borderColor: THEME.kawaiiAccent,
-                                    },
+                            minWidth: '180px',
+                            '& .MuiOutlinedInput-root': {
+                                '&.Mui-focused fieldset': {
+                                    borderColor: THEME.kawaiiAccent,
                                 },
-                            }}
-                        />
-                    </Grid2>
-                    <Grid2
-                        component="div"
+                            },
+                        }}
+                    />
+
+                    <TextField
+                        label="Note (optional)"
+                        value={formData.note}
+                        onChange={handleChange('note')}
                         sx={{
                             flex: 1,
-                            width: { xs: '100%', md: '20%' },
-                        }}
-                    >
-                        <TextField
-                            fullWidth
-                            label="Note (optional)"
-                            value={formData.note}
-                            onChange={handleChange('note')}
-                            sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    '&.Mui-focused fieldset': {
-                                        borderColor: THEME.kawaiiAccent,
-                                    },
+                            minWidth: '200px',
+                            '& .MuiOutlinedInput-root': {
+                                '&.Mui-focused fieldset': {
+                                    borderColor: THEME.kawaiiAccent,
                                 },
-                            }}
-                        />
-                    </Grid2>
-                    <Grid2
-                        component="div"
-                        sx={{
-                            flex: 1,
-                            width: { xs: '100%', md: '20%' },
+                            },
                         }}
-                    >
-                        <Box sx={{ display: 'flex', gap: 1, height: '56px' }}>
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 1, minWidth: '200px' }}>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            startIcon={<Plus />}
+                            sx={{
+                                bgcolor: THEME.kawaiiAccent,
+                                '&:hover': {
+                                    bgcolor: THEME.kawaiiSecondary,
+                                },
+                                flex: 2,
+                                height: '56px',
+                            }}
+                        >
+                            {editingExpense ? 'Update' : 'Add'}
+                        </Button>
+                        {!editingExpense && onShowRecurring && (
                             <Button
-                                fullWidth
-                                type="submit"
-                                variant="contained"
-                                startIcon={<Plus />}
+                                variant="outlined"
+                                onClick={onShowRecurring}
                                 sx={{
-                                    bgcolor: THEME.kawaiiAccent,
-                                    '&:hover': {
-                                        bgcolor: THEME.kawaiiSecondary,
-                                    },
+                                    color: THEME.kawaiiAccent,
+                                    borderColor: THEME.kawaiiAccent,
+                                    minWidth: '48px',
+                                    height: '56px',
+                                    flex: 1,
+                                }}
+                                title="Show recurring items"
+                            >
+                                <Clock size={16} />
+                            </Button>
+                        )}
+                        {editingExpense && (
+                            <Button
+                                variant="outlined"
+                                onClick={handleCancel}
+                                sx={{
+                                    color: THEME.kawaiiAccent,
+                                    borderColor: THEME.kawaiiAccent,
+                                    minWidth: '80px',
+                                    height: '56px',
+                                    flex: 1,
                                 }}
                             >
-                                {editingExpense ? 'Update' : 'Add'}
+                                Cancel
                             </Button>
-                            {editingExpense && (
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleCancel}
-                                    sx={{
-                                        color: THEME.kawaiiAccent,
-                                        borderColor: THEME.kawaiiAccent,
-                                        minWidth: '80px',
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                            )}
-                        </Box>
-                    </Grid2>
-                </Grid2>
+                        )}
+                    </Box>
+                </Stack>
             </Box>
         </Paper>
     );
-};
+}
 
 export default ExpenseForm;

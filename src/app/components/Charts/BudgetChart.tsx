@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/system';
 import { ResponsiveBar } from '@nivo/bar';
-import { BarChartData } from '../../types';
+import { BudgetChartData } from '../../types';
 import { CHART_MARGINS } from '../../constants';
 
 const ChartContainer = styled(Box)({
@@ -15,7 +15,7 @@ const ChartContainer = styled(Box)({
 });
 
 interface BudgetChartProps {
-    data: BarChartData[];
+    data: BudgetChartData[];
     title: string;
 }
 
