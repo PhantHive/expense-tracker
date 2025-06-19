@@ -22,9 +22,26 @@ import {
     CardContent,
     Chip,
     Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+    Collapse,
 } from '@mui/material';
-import { Plus, Trash2, Calendar, Tag, CreditCard, X } from 'lucide-react';
-import { RecurringLabel, RecurringPayment } from '../types/recurring';
+import {
+    Plus,
+    Trash2,
+    Calendar,
+    Tag,
+    CreditCard,
+    X,
+    ChevronDown,
+    ChevronUp
+} from 'lucide-react';
+import { RecurringLabel, RecurringPayment, PaymentScheduleItem } from '../types/recurring';
 import { THEME, EXPENSE_CATEGORIES } from '../constants';
 
 interface TabPanelProps {
@@ -59,6 +76,7 @@ interface RecurringManagerProps {
     onAddPayment: (payment: Omit<RecurringPayment, 'id' | 'isActive'>) => void;
     onRemovePayment: (id: string) => void;
     calculateRemainingPayments?: (payment: RecurringPayment) => number | undefined;
+    getScheduledPayments?: (payment: RecurringPayment) => PaymentScheduleItem[];
 }
 
 const RecurringManager: React.FC<RecurringManagerProps> = ({
@@ -71,8 +89,10 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
                                                                onAddPayment,
                                                                onRemovePayment,
                                                                calculateRemainingPayments,
+                                                               getScheduledPayments,
                                                            }) => {
     const [tabValue, setTabValue] = useState(0);
+    const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
 
     // Label form state
     const [labelForm, setLabelForm] = useState({
@@ -88,8 +108,15 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
         amount: '',
         startDate: '',
         endDate: '',
-        frequency: 'monthly' as 'monthly' | 'weekly' | 'daily',
+        frequency: 'monthly' as 'monthly' | 'weekly' | 'daily' | 'custom',
         paymentCount: '',
+    });
+
+    // Custom schedule state
+    const [customSchedule, setCustomSchedule] = useState<PaymentScheduleItem[]>([]);
+    const [newScheduleItem, setNewScheduleItem] = useState({
+        date: '',
+        amount: '',
     });
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -108,23 +135,62 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
         setLabelForm({ name: '', category: '', amount: '' });
     };
 
+    const handleAddScheduleItem = () => {
+        if (!newScheduleItem.date || !newScheduleItem.amount) return;
+
+        const newItem: PaymentScheduleItem = {
+            date: newScheduleItem.date,
+            amount: parseFloat(newScheduleItem.amount),
+            processed: false,
+        };
+
+        setCustomSchedule(prev => [...prev, newItem].sort((a, b) => a.date.localeCompare(b.date)));
+        setNewScheduleItem({ date: '', amount: '' });
+    };
+
+    const handleRemoveScheduleItem = (index: number) => {
+        setCustomSchedule(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleAddPayment = () => {
-        if (!paymentForm.name || !paymentForm.category || !paymentForm.amount ||
-            !paymentForm.startDate || !paymentForm.endDate) return;
+        if (!paymentForm.name || !paymentForm.category) return;
+
+        // For custom frequency, we need at least one scheduled payment
+        if (paymentForm.frequency === 'custom' && customSchedule.length === 0) {
+            alert('Please add at least one payment to the schedule for custom payments.');
+            return;
+        }
+
+        // For regular frequencies, we need amount, start date, and end date
+        if (paymentForm.frequency !== 'custom' && (!paymentForm.amount || !paymentForm.startDate || !paymentForm.endDate)) {
+            return;
+        }
 
         const newPayment: Omit<RecurringPayment, 'id' | 'isActive'> = {
             name: paymentForm.name,
             category: paymentForm.category,
-            amount: parseFloat(paymentForm.amount),
-            startDate: paymentForm.startDate,
-            endDate: paymentForm.endDate,
+            amount: paymentForm.frequency === 'custom'
+                ? customSchedule.reduce((sum, item) => sum + item.amount, 0) / customSchedule.length // Average amount for display
+                : parseFloat(paymentForm.amount),
+            startDate: paymentForm.frequency === 'custom'
+                ? customSchedule[0]?.date || paymentForm.startDate
+                : paymentForm.startDate,
+            endDate: paymentForm.frequency === 'custom'
+                ? customSchedule[customSchedule.length - 1]?.date || paymentForm.endDate
+                : paymentForm.endDate,
             frequency: paymentForm.frequency,
-            paymentCount: paymentForm.paymentCount ? parseInt(paymentForm.paymentCount) : undefined,
-            remainingPayments: paymentForm.paymentCount ? parseInt(paymentForm.paymentCount) : undefined,
+            paymentCount: paymentForm.frequency === 'custom'
+                ? customSchedule.length
+                : (paymentForm.paymentCount ? parseInt(paymentForm.paymentCount) : undefined),
+            remainingPayments: paymentForm.frequency === 'custom'
+                ? customSchedule.length
+                : (paymentForm.paymentCount ? parseInt(paymentForm.paymentCount) : undefined),
+            customSchedule: paymentForm.frequency === 'custom' ? [...customSchedule] : undefined,
         };
 
         onAddPayment(newPayment);
 
+        // Reset form
         setPaymentForm({
             name: '',
             category: '',
@@ -134,6 +200,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
             frequency: 'monthly',
             paymentCount: '',
         });
+        setCustomSchedule([]);
     };
 
     const formatCurrency = (amount: number) => {
@@ -141,6 +208,58 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
             style: 'currency',
             currency: 'USD',
         }).format(amount);
+    };
+
+    const getTotalScheduleAmount = () => {
+        return customSchedule.reduce((sum, item) => sum + item.amount, 0);
+    };
+
+    const getPaymentScheduleDisplay = (payment: RecurringPayment) => {
+        if (getScheduledPayments) {
+            return getScheduledPayments(payment);
+        }
+
+        // Fallback if getScheduledPayments is not provided
+        if (payment.frequency === 'custom' && payment.customSchedule) {
+            return payment.customSchedule;
+        }
+
+        // For regular payments, generate a preview of upcoming payments
+        const schedule: PaymentScheduleItem[] = [];
+        const startDate = new Date(payment.startDate);
+        const endDate = new Date(payment.endDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let currentDate = new Date(startDate);
+        let count = 0;
+
+        while (currentDate <= endDate && count < 12) { // Show max 12 payments for preview
+            const paymentDate = new Date(currentDate);
+            paymentDate.setHours(0, 0, 0, 0);
+
+            schedule.push({
+                date: currentDate.toISOString().split('T')[0],
+                amount: payment.amount,
+                processed: paymentDate < today // Mark as processed if the date is in the past
+            });
+
+            count++;
+
+            switch (payment.frequency) {
+                case 'daily':
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'weekly':
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'monthly':
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+            }
+        }
+
+        return schedule;
     };
 
     const getRemainingPaymentsDisplay = (payment: RecurringPayment) => {
@@ -176,14 +295,14 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="lg"
+            maxWidth="xl"
             fullWidth
             PaperProps={{
                 sx: {
                     bgcolor: THEME.kawaiiBg,
                     border: `2px solid ${THEME.kawaiiAccent}`,
                     borderRadius: 3,
-                    minHeight: '70vh',
+                    minHeight: '80vh',
                 }
             }}
         >
@@ -352,35 +471,6 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
                                             ))}
                                         </Select>
                                     </FormControl>
-                                    <TextField
-                                        label="Amount"
-                                        type="number"
-                                        value={paymentForm.amount}
-                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-                                        required
-                                        sx={{ flex: 1, minWidth: '120px' }}
-                                    />
-                                </Stack>
-
-                                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-                                    <TextField
-                                        label="Start Date"
-                                        type="date"
-                                        value={paymentForm.startDate}
-                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, startDate: e.target.value }))}
-                                        InputLabelProps={{ shrink: true }}
-                                        required
-                                        sx={{ flex: 1, minWidth: '180px' }}
-                                    />
-                                    <TextField
-                                        label="End Date"
-                                        type="date"
-                                        value={paymentForm.endDate}
-                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, endDate: e.target.value }))}
-                                        InputLabelProps={{ shrink: true }}
-                                        required
-                                        sx={{ flex: 1, minWidth: '180px' }}
-                                    />
                                     <FormControl sx={{ flex: 1, minWidth: '120px' }}>
                                         <InputLabel>Frequency</InputLabel>
                                         <Select
@@ -391,17 +481,134 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
                                             <MenuItem value="daily">Daily</MenuItem>
                                             <MenuItem value="weekly">Weekly</MenuItem>
                                             <MenuItem value="monthly">Monthly</MenuItem>
+                                            <MenuItem value="custom">Custom Schedule</MenuItem>
                                         </Select>
                                     </FormControl>
-                                    <TextField
-                                        label="Payment Count (optional)"
-                                        type="number"
-                                        value={paymentForm.paymentCount}
-                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentCount: e.target.value }))}
-                                        helperText="e.g., PayPal x4 payments"
-                                        sx={{ flex: 1, minWidth: '180px' }}
-                                    />
                                 </Stack>
+
+                                {/* Regular payment fields */}
+                                {paymentForm.frequency !== 'custom' && (
+                                    <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+                                        <TextField
+                                            label="Amount"
+                                            type="number"
+                                            value={paymentForm.amount}
+                                            onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                                            required
+                                            sx={{ flex: 1, minWidth: '120px' }}
+                                        />
+                                        <TextField
+                                            label="Start Date"
+                                            type="date"
+                                            value={paymentForm.startDate}
+                                            onChange={(e) => setPaymentForm(prev => ({ ...prev, startDate: e.target.value }))}
+                                            InputLabelProps={{ shrink: true }}
+                                            required
+                                            sx={{ flex: 1, minWidth: '180px' }}
+                                        />
+                                        <TextField
+                                            label="End Date"
+                                            type="date"
+                                            value={paymentForm.endDate}
+                                            onChange={(e) => setPaymentForm(prev => ({ ...prev, endDate: e.target.value }))}
+                                            InputLabelProps={{ shrink: true }}
+                                            required
+                                            sx={{ flex: 1, minWidth: '180px' }}
+                                        />
+                                        <TextField
+                                            label="Payment Count (optional)"
+                                            type="number"
+                                            value={paymentForm.paymentCount}
+                                            onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentCount: e.target.value }))}
+                                            sx={{ flex: 1, minWidth: '180px' }}
+                                        />
+                                    </Stack>
+                                )}
+
+                                {/* Custom schedule builder */}
+                                {paymentForm.frequency === 'custom' && (
+                                    <Card sx={{ bgcolor: 'rgba(0, 0, 0, 0.05)' }}>
+                                        <CardContent>
+                                            <Typography variant="subtitle1" gutterBottom>
+                                                📅 Custom Payment Schedule
+                                            </Typography>
+
+                                            {/* Add new schedule item */}
+                                            <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'end' }}>
+                                                <TextField
+                                                    label="Payment Date"
+                                                    type="date"
+                                                    value={newScheduleItem.date}
+                                                    onChange={(e) => setNewScheduleItem(prev => ({ ...prev, date: e.target.value }))}
+                                                    InputLabelProps={{ shrink: true }}
+                                                    sx={{ flex: 1 }}
+                                                />
+                                                <TextField
+                                                    label="Amount"
+                                                    type="number"
+                                                    value={newScheduleItem.amount}
+                                                    onChange={(e) => setNewScheduleItem(prev => ({ ...prev, amount: e.target.value }))}
+                                                    sx={{ flex: 1 }}
+                                                />
+                                                <Button
+                                                    variant="outlined"
+                                                    onClick={handleAddScheduleItem}
+                                                    startIcon={<Plus />}
+                                                    sx={{
+                                                        color: THEME.kawaiiAccent,
+                                                        borderColor: THEME.kawaiiAccent,
+                                                        height: '56px'
+                                                    }}
+                                                >
+                                                    Add Payment
+                                                </Button>
+                                            </Stack>
+
+                                            {/* Schedule table */}
+                                            {customSchedule.length > 0 && (
+                                                <TableContainer component={Paper} sx={{ mt: 2 }}>
+                                                    <Table size="small">
+                                                        <TableHead>
+                                                            <TableRow>
+                                                                <TableCell>Date</TableCell>
+                                                                <TableCell align="right">Amount</TableCell>
+                                                                <TableCell align="center">Actions</TableCell>
+                                                            </TableRow>
+                                                        </TableHead>
+                                                        <TableBody>
+                                                            {customSchedule.map((item, index) => (
+                                                                <TableRow key={index}>
+                                                                    <TableCell>
+                                                                        {new Date(item.date).toLocaleDateString()}
+                                                                    </TableCell>
+                                                                    <TableCell align="right">
+                                                                        {formatCurrency(item.amount)}
+                                                                    </TableCell>
+                                                                    <TableCell align="center">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleRemoveScheduleItem(index)}
+                                                                            sx={{ color: 'error.main' }}
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </IconButton>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                            <TableRow>
+                                                                <TableCell sx={{ fontWeight: 'bold' }}>Total:</TableCell>
+                                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                                                                    {formatCurrency(getTotalScheduleAmount())}
+                                                                </TableCell>
+                                                                <TableCell></TableCell>
+                                                            </TableRow>
+                                                        </TableBody>
+                                                    </Table>
+                                                </TableContainer>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
 
                                 <Button
                                     variant="contained"
@@ -419,61 +626,137 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({
                         </CardContent>
                     </Card>
 
+                    {/* Existing payments list */}
                     <List>
                         {recurringPayments.filter(p => p.isActive).map((payment) => {
                             const status = getPaymentStatus(payment);
+                            const isExpanded = expandedPayment === payment.id;
+                            const schedule = getPaymentScheduleDisplay(payment);
                             const remainingDisplay = getRemainingPaymentsDisplay(payment);
 
                             return (
-                                <ListItem
-                                    key={payment.id}
-                                    sx={{
-                                        bgcolor: 'rgba(255, 255, 255, 0.6)',
-                                        borderRadius: 2,
-                                        mb: 1,
-                                    }}
-                                >
-                                    <ListItemText
-                                        primary={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                <Typography fontWeight="bold">{payment.name}</Typography>
-                                                <Chip label={formatCurrency(payment.amount)} size="small" color="error" />
-                                                <Chip label={payment.category} size="small" variant="outlined" />
-                                                <Chip label={payment.frequency} size="small" color="info" />
-                                                <Chip
-                                                    label={`${remainingDisplay} left`}
-                                                    size="small"
-                                                    color={status.color}
-                                                />
-                                                <Chip
-                                                    label={status.text}
-                                                    size="small"
-                                                    color={status.color}
-                                                    variant="outlined"
-                                                />
-                                            </Box>
-                                        }
-                                        secondary={
-                                            <Box>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {new Date(payment.startDate).toLocaleDateString()} → {new Date(payment.endDate).toLocaleDateString()}
-                                                </Typography>
-                                                {payment.lastProcessed && (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        Last processed: {new Date(payment.lastProcessed).toLocaleDateString()}
-                                                    </Typography>
-                                                )}
-                                            </Box>
-                                        }
-                                    />
-                                    <IconButton
-                                        edge="end"
-                                        onClick={() => onRemovePayment(payment.id)}
-                                        sx={{ color: 'error.main' }}
+                                <React.Fragment key={payment.id}>
+                                    <ListItem
+                                        sx={{
+                                            bgcolor: 'rgba(255, 255, 255, 0.6)',
+                                            borderRadius: 2,
+                                            mb: 1,
+                                        }}
                                     >
-                                        <Trash2 size={16} />
-                                    </IconButton>
-                                </ListItem>
+                                        <ListItemText
+                                            primary={
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                    <Typography fontWeight="bold">{payment.name}</Typography>
+                                                    <Chip
+                                                        label={payment.frequency === 'custom' ? 'Custom Schedule' : formatCurrency(payment.amount)}
+                                                        size="small"
+                                                        color="error"
+                                                    />
+                                                    <Chip label={payment.category} size="small" variant="outlined" />
+                                                    <Chip label={payment.frequency} size="small" color="info" />
+                                                    <Chip
+                                                        label={`${remainingDisplay} left`}
+                                                        size="small"
+                                                        color={status.color}
+                                                    />
+                                                    <Chip
+                                                        label={status.text}
+                                                        size="small"
+                                                        color={status.color}
+                                                        variant="outlined"
+                                                    />
+                                                </Box>
+                                            }
+                                            secondary={
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {new Date(payment.startDate).toLocaleDateString()} → {new Date(payment.endDate).toLocaleDateString()}
+                                                    </Typography>
+                                                    {payment.frequency === 'custom' && payment.customSchedule && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Total: {formatCurrency(payment.customSchedule.reduce((sum, item) => sum + item.amount, 0))}
+                                                            ({payment.customSchedule.length} payments)
+                                                        </Typography>
+                                                    )}
+                                                    {payment.lastProcessed && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Last processed: {new Date(payment.lastProcessed).toLocaleDateString()}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            }
+                                        />
+                                        <IconButton
+                                            onClick={() => setExpandedPayment(isExpanded ? null : payment.id)}
+                                            sx={{ color: THEME.kawaiiAccent }}
+                                        >
+                                            {isExpanded ? <ChevronUp /> : <ChevronDown />}
+                                        </IconButton>
+                                        <IconButton
+                                            edge="end"
+                                            onClick={() => onRemovePayment(payment.id)}
+                                            sx={{ color: 'error.main' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </IconButton>
+                                    </ListItem>
+
+                                    {/* Expanded payment schedule */}
+                                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                                        <Card sx={{ mx: 2, mb: 2, bgcolor: 'rgba(0, 0, 0, 0.05)' }}>
+                                            <CardContent>
+                                                <Typography variant="subtitle2" gutterBottom>
+                                                    Payment Schedule {payment.frequency !== 'custom' && '(Preview)'}:
+                                                </Typography>
+                                                <TableContainer>
+                                                    <Table size="small">
+                                                        <TableHead>
+                                                            <TableRow>
+                                                                <TableCell>Date</TableCell>
+                                                                <TableCell align="right">Amount</TableCell>
+                                                                <TableCell align="center">Status</TableCell>
+                                                            </TableRow>
+                                                        </TableHead>
+                                                        <TableBody>
+                                                            {schedule.slice(0, 10).map((item, index) => (
+                                                                <TableRow key={index}>
+                                                                    <TableCell>
+                                                                        {new Date(item.date).toLocaleDateString()}
+                                                                    </TableCell>
+                                                                    <TableCell align="right">
+                                                                        {formatCurrency(item.amount)}
+                                                                    </TableCell>
+                                                                    <TableCell align="center">
+                                                                        <Chip
+                                                                            label={
+                                                                                item.processed
+                                                                                    ? (new Date(item.date) < new Date() ? 'Completed' : 'Processed')
+                                                                                    : 'Pending'
+                                                                            }
+                                                                            size="small"
+                                                                            color={
+                                                                                item.processed
+                                                                                    ? 'success'
+                                                                                    : (new Date(item.date) < new Date() ? 'warning' : 'info')
+                                                                            }
+                                                                        />
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                            {schedule.length > 10 && (
+                                                                <TableRow>
+                                                                    <TableCell colSpan={3} align="center" sx={{ fontStyle: 'italic' }}>
+                                                                        ... and {schedule.length - 10} more payments
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
+                                                        </TableBody>
+                                                    </Table>
+                                                </TableContainer>
+                                            </CardContent>
+                                        </Card>
+                                    </Collapse>
+                                </React.Fragment>
                             );
                         })}
                         {recurringPayments.filter(p => p.isActive).length === 0 && (

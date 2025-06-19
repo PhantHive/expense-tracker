@@ -192,10 +192,14 @@ const ExpenseTracker: React.FC = () => {
         addRecurringPayment,
         updateRecurringPayment,
         removeRecurringPayment,
+        markScheduledPaymentAsProcessed,
         isPendingForMonth,
         cleanupExpiredPayments,
         refreshPaymentCalculations,
         calculateRemainingPayments,
+        getScheduledPayments,
+        getPendingPaymentsForMonth,
+        getTotalPaymentAmount,
     } = useRecurring();
 
     const {
@@ -348,13 +352,21 @@ const ExpenseTracker: React.FC = () => {
         const payment = recurringPayments.find(p => p.id === paymentId);
         if (!payment) return;
 
-        // Calculate remaining payments based on start date
-        const newRemainingPayments = calculateRemainingPayments(payment);
+        // For custom payments, we need to find and mark the current month's payment
+        if (payment.frequency === 'custom') {
+            const currentMonth = formatMonth(new Date().toISOString().split('T')[0]);
+            const pendingItems = getPendingPaymentsForMonth(payment, currentMonth);
 
-        updateRecurringPayment(paymentId, {
-            lastProcessed: new Date().toISOString().split('T')[0],
-            remainingPayments: newRemainingPayments !== undefined ? Math.max(0, newRemainingPayments - 1) : undefined
-        });
+            // Mark the first pending payment as processed
+            if (pendingItems.length > 0) {
+                markScheduledPaymentAsProcessed(paymentId, pendingItems[0].date);
+            }
+        } else {
+            // For regular payments, use the old system
+            updateRecurringPayment(paymentId, {
+                lastProcessed: new Date().toISOString().split('T')[0]
+            });
+        }
     };
 
 
@@ -608,7 +620,18 @@ const ExpenseTracker: React.FC = () => {
                 onAddExpense={addExpense}
                 currentMonth={formatMonth(new Date().toISOString().split('T')[0])}
                 isPendingForMonth={isPendingForMonth}
-                onMarkAsProcessed={handleMarkAsProcessed}
+                onMarkAsProcessed={(paymentId: string, scheduledDate?: string) => {
+                    if (scheduledDate) {
+                        // Use the new function for marking specific scheduled payments
+                        markScheduledPaymentAsProcessed(paymentId, scheduledDate);
+                    } else {
+                        // Fallback for legacy support - handle old recurring payments
+                        updateRecurringPayment(paymentId, {
+                            lastProcessed: new Date().toISOString().split('T')[0]
+                        });
+                    }
+                }}
+                getPendingPaymentsForMonth={getPendingPaymentsForMonth} // Pass the function directly
             />
 
             <RecurringManager
@@ -621,6 +644,7 @@ const ExpenseTracker: React.FC = () => {
                 onAddPayment={addRecurringPayment}
                 onRemovePayment={removeRecurringPayment}
                 calculateRemainingPayments={calculateRemainingPayments}
+                getScheduledPayments={getScheduledPayments}
             />
 
             <MoneyPrediction

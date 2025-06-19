@@ -1,43 +1,4 @@
-// Add these types to your existing types/recurring.ts file or create it if it doesn't exist
-
-export interface IncomeItem {
-    id: string;
-    name: string;
-    amount: number;
-    date: string; // YYYY-MM-DD format
-    isRecurring: boolean;
-    frequency?: 'daily' | 'weekly' | 'monthly';
-}
-
-export interface OutgoingItem {
-    id: string;
-    name: string;
-    amount: number;
-    date: string; // YYYY-MM-DD format
-    category: string;
-    isRecurring: boolean;
-    frequency?: 'daily' | 'weekly' | 'monthly';
-}
-
-export interface Transaction {
-    name: string;
-    amount: number; // Positive for income, negative for outgoing
-    type: 'income' | 'outgoing';
-    date: string; // YYYY-MM-DD format
-}
-
-export interface DailyBreakdown {
-    date: string; // YYYY-MM-DD format
-    balance: number;
-    transactions: Transaction[];
-}
-
-export interface MoneyPrediction {
-    currentBalance: number;
-    predictedBalance: number;
-    targetDate: string;
-    dailyBreakdown: DailyBreakdown[];
-}
+// Updated types/recurring.ts file
 
 export interface RecurringLabel {
     id: string;
@@ -47,16 +8,65 @@ export interface RecurringLabel {
     createdAt: string;
 }
 
+export interface PaymentScheduleItem {
+    date: string; // YYYY-MM-DD format
+    amount: number;
+    processed?: boolean; // Track if this specific payment has been processed
+}
+
 export interface RecurringPayment {
     id: string;
     name: string;
     category: string;
-    amount: number;
-    startDate: string; // YYYY-MM-DD format
-    endDate: string; // YYYY-MM-DD format
-    frequency: 'daily' | 'weekly' | 'monthly';
+    amount: number; // This becomes the default/base amount for display
+    startDate: string;
+    endDate: string;
+    frequency: 'monthly' | 'weekly' | 'daily' | 'custom'; // Add 'custom' option
+    paymentCount?: number;
+    remainingPayments?: number;
+    lastProcessed?: string;
     isActive: boolean;
-    paymentCount?: number; // Total number of payments (e.g., PayPal x4)
-    remainingPayments?: number; // How many payments are left
-    lastProcessed?: string; // Last date when payment was processed
+
+    // New field for custom payment schedules
+    customSchedule?: PaymentScheduleItem[]; // Only used when frequency is 'custom'
+}
+
+// Money prediction types
+export interface IncomeItem {
+    id: string;
+    name: string;
+    amount: number;
+    date: string;
+    isRecurring?: boolean;
+    frequency?: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface OutgoingItem {
+    id: string;
+    name: string;
+    amount: number;
+    date: string;
+    category: string;
+    isRecurring?: boolean;
+    frequency?: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface Transaction {
+    name: string;
+    amount: number;
+    type: 'income' | 'outgoing';
+    date: string;
+}
+
+export interface DailyBreakdown {
+    date: string;
+    balance: number;
+    transactions: Transaction[];
+}
+
+export interface MoneyPrediction {
+    currentBalance: number;
+    predictedBalance: number;
+    targetDate: string;
+    dailyBreakdown: DailyBreakdown[];
 }

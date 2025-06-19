@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { RecurringLabel, RecurringPayment } from '../types/recurring';
+import { RecurringLabel, RecurringPayment, PaymentScheduleItem } from '../types/recurring';
 
 const STORAGE_KEYS = {
     LABELS: 'expense-tracker-recurring-labels',
@@ -33,51 +33,114 @@ export const useRecurring = () => {
         localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(recurringPayments));
     }, [recurringPayments]);
 
-    // Calculate how many payments should have been made since start date
-    const calculatePaymentsMadeSinceStart = useCallback((payment: RecurringPayment, currentDate: Date = new Date()) => {
-        const startDate = new Date(payment.startDate);
-        const endDate = new Date(payment.endDate);
+    // Helper function to get all scheduled payments for a payment
+    const getScheduledPayments = useCallback((payment: RecurringPayment): PaymentScheduleItem[] => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        // If current date is before start date, no payments should have been made
-        if (currentDate < startDate) {
-            return 0;
+        if (payment.frequency === 'custom' && payment.customSchedule) {
+            // For custom schedules, check each payment against today's date
+            return payment.customSchedule.map(item => {
+                const itemDate = new Date(item.date);
+                itemDate.setHours(0, 0, 0, 0);
+
+                return {
+                    ...item,
+                    processed: item.processed || itemDate < today // Mark as processed if in the past or already processed
+                };
+            });
         }
 
-        // If current date is after end date, calculate based on end date
-        const calculationDate = currentDate > endDate ? endDate : currentDate;
+        // For regular frequencies, generate the schedule dynamically
+        const schedule: PaymentScheduleItem[] = [];
+        const startDate = new Date(payment.startDate);
+        const endDate = new Date(payment.endDate);
+        let currentDate = new Date(startDate);
 
-        let paymentsMade = 0;
-        let nextPaymentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const paymentDate = new Date(currentDate);
+            paymentDate.setHours(0, 0, 0, 0);
 
-        while (nextPaymentDate <= calculationDate) {
-            paymentsMade++;
+            // Check if this payment was already processed based on lastProcessed date
+            let isProcessed = false;
+            if (payment.lastProcessed) {
+                const lastProcessedDate = new Date(payment.lastProcessed);
+                lastProcessedDate.setHours(0, 0, 0, 0);
+                isProcessed = paymentDate <= lastProcessedDate;
+            }
+
+            // Also mark as processed if the date is in the past
+            isProcessed = isProcessed || paymentDate < today;
+
+            schedule.push({
+                date: currentDate.toISOString().split('T')[0],
+                amount: payment.amount,
+                processed: isProcessed
+            });
 
             // Calculate next payment date based on frequency
             switch (payment.frequency) {
                 case 'daily':
-                    nextPaymentDate.setDate(nextPaymentDate.getDate() + 1);
+                    currentDate.setDate(currentDate.getDate() + 1);
                     break;
                 case 'weekly':
-                    nextPaymentDate.setDate(nextPaymentDate.getDate() + 7);
+                    currentDate.setDate(currentDate.getDate() + 7);
                     break;
                 case 'monthly':
-                    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+                    currentDate.setMonth(currentDate.getMonth() + 1);
                     break;
             }
         }
 
-        return paymentsMade;
+        return schedule;
     }, []);
 
-    // Calculate remaining payments based on start date
-    const calculateRemainingPayments = useCallback((payment: RecurringPayment) => {
-        if (!payment.paymentCount) {
-            return undefined; // Unlimited payments
-        }
+    // Helper function to get pending payments for a specific month
+    const getPendingPaymentsForMonth = useCallback((payment: RecurringPayment, month: string): PaymentScheduleItem[] => {
+        const monthStart = new Date(month + '-01');
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-        const paymentsMade = calculatePaymentsMadeSinceStart(payment);
-        return Math.max(0, payment.paymentCount - paymentsMade);
-    }, [calculatePaymentsMadeSinceStart]);
+        const allScheduled = getScheduledPayments(payment);
+
+        return allScheduled.filter(item => {
+            const itemDate = new Date(item.date);
+            return itemDate >= monthStart &&
+                itemDate <= monthEnd &&
+                !item.processed;
+        });
+    }, [getScheduledPayments]);
+
+    // Calculate remaining payments based on schedule
+    const calculateRemainingPayments = useCallback((payment: RecurringPayment) => {
+        const schedule = getScheduledPayments(payment);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Count unprocessed payments that are still in the future or today
+        const remaining = schedule.filter(item => {
+            const itemDate = new Date(item.date);
+            itemDate.setHours(0, 0, 0, 0);
+            return !item.processed && itemDate >= today;
+        }).length;
+
+        return remaining;
+    }, [getScheduledPayments]);
+
+    // Get the next scheduled payment for a recurring payment
+    const getNextScheduledPayment = useCallback((payment: RecurringPayment): PaymentScheduleItem | null => {
+        const schedule = getScheduledPayments(payment);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Find the next unprocessed payment
+        const nextPayment = schedule.find(item => {
+            const itemDate = new Date(item.date);
+            itemDate.setHours(0, 0, 0, 0);
+            return !item.processed && itemDate >= today;
+        });
+
+        return nextPayment || null;
+    }, [getScheduledPayments]);
 
     const addRecurringLabel = useCallback((name: string, category: string, amount?: number) => {
         const newLabel: RecurringLabel = {
@@ -94,12 +157,11 @@ export const useRecurring = () => {
         setRecurringLabels(prev => prev.filter(label => label.id !== id));
     }, []);
 
-    const addRecurringPayment = useCallback((payment: Omit<RecurringPayment, 'id' | 'isActive' | 'remainingPayments'>) => {
+    const addRecurringPayment = useCallback((payment: Omit<RecurringPayment, 'id' | 'isActive'>) => {
         const newPayment: RecurringPayment = {
             ...payment,
             id: Date.now().toString(),
             isActive: true,
-            remainingPayments: payment.paymentCount ? payment.paymentCount : undefined,
         };
         setRecurringPayments(prev => [...prev, newPayment]);
     }, []);
@@ -108,20 +170,48 @@ export const useRecurring = () => {
         setRecurringPayments(prev =>
             prev.map(payment => {
                 if (payment.id === id) {
-                    const updatedPayment = { ...payment, ...updates };
-
-                    // Recalculate remaining payments if this update affects the payment count
-                    if (updatedPayment.paymentCount !== undefined) {
-                        updatedPayment.remainingPayments = calculateRemainingPayments(updatedPayment);
-                    }
-
-                    return updatedPayment;
-                } else {
-                    return payment;
+                    return { ...payment, ...updates };
                 }
+                return payment;
             })
         );
-    }, [calculateRemainingPayments]);
+    }, []);
+
+    // Mark a specific scheduled payment as processed
+    const markScheduledPaymentAsProcessed = useCallback((paymentId: string, scheduledDate: string) => {
+        setRecurringPayments(prev =>
+            prev.map(payment => {
+                if (payment.id === paymentId) {
+                    if (payment.frequency === 'custom' && payment.customSchedule) {
+                        const updatedSchedule = payment.customSchedule.map(item =>
+                            item.date === scheduledDate ? { ...item, processed: true } : item
+                        );
+                        return { ...payment, customSchedule: updatedSchedule };
+                    } else {
+                        // For regular payments, we'll update the lastProcessed field
+                        return { ...payment, lastProcessed: scheduledDate };
+                    }
+                }
+                return payment;
+            })
+        );
+    }, []);
+
+    // Get all pending scheduled payments for a specific month
+    const getPendingScheduledPayments = useCallback((month: string) => {
+        const result: Array<{ payment: RecurringPayment; scheduledItems: PaymentScheduleItem[] }> = [];
+
+        recurringPayments.forEach(payment => {
+            if (payment.isActive) {
+                const pendingItems = getPendingPaymentsForMonth(payment, month);
+                if (pendingItems.length > 0) {
+                    result.push({ payment, scheduledItems: pendingItems });
+                }
+            }
+        });
+
+        return result;
+    }, [recurringPayments, getPendingPaymentsForMonth]);
 
     const removeRecurringPayment = useCallback((id: string) => {
         setRecurringPayments(prev => prev.filter(payment => payment.id !== id));
@@ -135,7 +225,7 @@ export const useRecurring = () => {
 
             return payment.isActive &&
                 endDate >= today &&
-                (remainingPayments === undefined || remainingPayments > 0);
+                remainingPayments > 0;
         });
     }, [recurringPayments, calculateRemainingPayments]);
 
@@ -146,7 +236,7 @@ export const useRecurring = () => {
             const remainingPayments = calculateRemainingPayments(payment);
 
             return payment.isActive &&
-                (endDate < today || (remainingPayments !== undefined && remainingPayments <= 0));
+                (endDate < today || remainingPayments <= 0);
         });
     }, [recurringPayments, calculateRemainingPayments]);
 
@@ -157,69 +247,30 @@ export const useRecurring = () => {
         });
     }, [getExpiredRecurringPayments, updateRecurringPayment]);
 
-    const getMonthlyRecurringExpenses = useCallback((month: string) => {
-        const activePayments = getActiveRecurringPayments();
-        const monthStart = new Date(month + '-01');
-        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-        return activePayments.filter(payment => {
-            const startDate = new Date(payment.startDate);
-            const endDate = new Date(payment.endDate);
-
-            return startDate <= monthEnd && endDate >= monthStart;
-        });
-    }, [getActiveRecurringPayments]);
-
+    // Check if a payment has pending items for a specific month
     const isPendingForMonth = useCallback((payment: RecurringPayment, month: string) => {
-        const monthStart = new Date(month + '-01');
-        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-        const startDate = new Date(payment.startDate);
+        const pendingItems = getPendingPaymentsForMonth(payment, month);
+        return pendingItems.length > 0;
+    }, [getPendingPaymentsForMonth]);
 
-        // If payment hasn't started yet this month, it's not pending
-        if (startDate > monthEnd) {
-            return false;
-        }
-
-        // Check if we should have a payment in this month based on frequency and start date
-        let currentPaymentDate = new Date(startDate);
-
-        while (currentPaymentDate <= monthEnd) {
-            // If this payment date is in the current month and we haven't processed it yet
-            if (currentPaymentDate >= monthStart && currentPaymentDate <= monthEnd) {
-                const lastProcessed = payment.lastProcessed ? new Date(payment.lastProcessed) : null;
-
-                // If never processed, or last processed was before this payment date
-                if (!lastProcessed || lastProcessed < currentPaymentDate) {
-                    return true;
-                }
-            }
-
-            // Calculate next payment date
-            switch (payment.frequency) {
-                case 'daily':
-                    currentPaymentDate.setDate(currentPaymentDate.getDate() + 1);
-                    break;
-                case 'weekly':
-                    currentPaymentDate.setDate(currentPaymentDate.getDate() + 7);
-                    break;
-                case 'monthly':
-                    currentPaymentDate.setMonth(currentPaymentDate.getMonth() + 1);
-                    break;
-            }
-        }
-
-        return false;
+    // Function to refresh all payment calculations
+    const refreshPaymentCalculations = useCallback(() => {
+        // For custom schedules, we don't need to recalculate anything
+        // The schedule is explicitly defined
+        setRecurringPayments(prev => [...prev]);
     }, []);
 
-    // Function to refresh all payment calculations (useful for periodic updates)
-    const refreshPaymentCalculations = useCallback(() => {
-        setRecurringPayments(prev =>
-            prev.map(payment => ({
-                ...payment,
-                remainingPayments: calculateRemainingPayments(payment)
-            }))
-        );
-    }, [calculateRemainingPayments]);
+    // Get total amount for a payment (sum of all scheduled amounts)
+    const getTotalPaymentAmount = useCallback((payment: RecurringPayment): number => {
+        const schedule = getScheduledPayments(payment);
+        return schedule.reduce((sum, item) => sum + item.amount, 0);
+    }, [getScheduledPayments]);
+
+    // Get amount for current month
+    const getMonthlyAmount = useCallback((payment: RecurringPayment, month: string): number => {
+        const monthlyItems = getPendingPaymentsForMonth(payment, month);
+        return monthlyItems.reduce((sum, item) => sum + item.amount, 0);
+    }, [getPendingPaymentsForMonth]);
 
     return {
         recurringLabels,
@@ -229,13 +280,18 @@ export const useRecurring = () => {
         addRecurringPayment,
         updateRecurringPayment,
         removeRecurringPayment,
+        markScheduledPaymentAsProcessed,
         getActiveRecurringPayments,
         getExpiredRecurringPayments,
         cleanupExpiredPayments,
-        getMonthlyRecurringExpenses,
         isPendingForMonth,
         refreshPaymentCalculations,
         calculateRemainingPayments,
-        calculatePaymentsMadeSinceStart,
+        getNextScheduledPayment,
+        getPendingScheduledPayments,
+        getTotalPaymentAmount,
+        getMonthlyAmount,
+        getScheduledPayments,
+        getPendingPaymentsForMonth, // Make sure this is included in the return
     };
 };
