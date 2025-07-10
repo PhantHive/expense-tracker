@@ -50,25 +50,36 @@ export const getBarChartData = (expenses: Expense[]): { month: string; value: nu
         }));
 };
 
-export const getBudgetChartData = (expenses: Expense[], budgets: Record<string, Budget>): BarChartData[] => {
-    const monthlyTotals = calculateMonthlyTotals(expenses);
+export const getBudgetChartData = (expenses: Expense[], budgets: Budget[]): BudgetChartData[] => {
+    const monthlyExpenses = expenses.reduce((acc, expense) => {
+        const month = expense.date.substring(0, 7); // YYYY-MM format
+        acc[month] = (acc[month] || 0) + expense.amount;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const budgetMap = budgets.reduce((acc, budget) => {
+        acc[budget.id] = budget;
+        return acc;
+    }, {} as Record<string, Budget>);
+
+    // Get all unique months from both expenses and budgets
     const allMonths = new Set([
-        ...Object.keys(monthlyTotals),
-        ...Object.keys(budgets)
+        ...Object.keys(monthlyExpenses),
+        ...budgets.map(b => b.id)
     ]);
 
     return Array.from(allMonths)
         .sort()
         .map(month => {
-            const spent = monthlyTotals[month] || 0;
-            const budget = budgets[month]?.budgetAmount || 0;
+            const spent = monthlyExpenses[month] || 0;
+            const budget = budgetMap[month]?.budgetAmount || 0;
             const remaining = Math.max(0, budget - spent);
 
             return {
-                month: formatMonthDisplay(month),
+                month,
                 budget,
                 spent,
-                remaining,
+                remaining
             };
         });
 };
@@ -98,13 +109,13 @@ export const getMonthlyData = (expenses: Expense[], budgets: Record<string, Budg
         });
 };
 
-export const getTotalBudget = (budgets: Record<string, Budget>): number => {
-    return Object.values(budgets).reduce((total, budget) => total + budget.budgetAmount, 0);
-};
-
-export const getTotalSpent = (expenses: Expense[]): number => {
-    return expenses.reduce((total, expense) => total + expense.amount, 0);
-};
+// export const getTotalBudget = (budgets: Record<string, Budget>): number => {
+//     return Object.values(budgets).reduce((total, budget) => total + budget.budgetAmount, 0);
+// };
+//
+// export const getTotalSpent = (expenses: Expense[]): number => {
+//     return expenses.reduce((total, expense) => total + expense.amount, 0);
+// };
 
 export const getCurrentMonthData = (expenses: Expense[], budgets: Record<string, Budget>) => {
     const currentMonth = formatMonth(new Date().toISOString().split('T')[0]);
