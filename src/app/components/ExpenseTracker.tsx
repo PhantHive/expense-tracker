@@ -383,9 +383,9 @@ const ExpenseTracker: React.FC = () => {
     // Data for charts and components
     const pieChartData = getPieChartData(expenses, categoryFilter);
     const barChartData = getBarChartData(expenses);
-    const budgetChartData = getBudgetChartData(expenses, budgets);
-    const monthlyData = getMonthlyData(expenses, budgets);
-    const currentMonthData = getCurrentMonthData(expenses, budgets);
+    const budgetChartData = getBudgetChartData(expenses, Object.values(budgets));
+    const monthlyData = getMonthlyData(expenses, Object.values(budgets));
+    const currentMonthData = getCurrentMonthData(expenses, Object.values(budgets));
     const filteredAndSortedExpenses = getFilteredAndSortedExpenses();
     const uniqueCategories = getUniqueCategories();
 

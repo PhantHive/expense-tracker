@@ -1,4 +1,11 @@
-import { Expense, Budget, ChartData, BarChartData, MonthlyData } from '../types';
+import {
+    Expense,
+    Budget,
+    ChartData,
+    BarChartData,
+    MonthlyData,
+    BudgetChartData,
+} from '../types';
 
 export const formatMonth = (date: string): string => {
     return date.substring(0, 7); // YYYY-MM format
