@@ -28,6 +28,12 @@ export interface ChartData {
     value: number;
 }
 
+export interface BarChartData {
+    month: string;
+    value: number;
+    [key: string]: string | number;
+}
+
 export interface BudgetChartData {
     month: string;
     budget: number;
